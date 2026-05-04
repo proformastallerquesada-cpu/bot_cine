@@ -25,6 +25,9 @@ let tareaCierre, tareaAsistencia, tareaCobro;
 const numeroDuenio = '50688734753@c.us'; 
 const numeroDelBot = '50664797833';
 
+// --- 🌐 PÁGINA WEB DEL QR (¡De vuelta!) ---
+let htmlContenido = "<h2 style='font-family: Arial; text-align: center; margin-top: 50px; color: #555;'>⚙️ Iniciando el motor de tu Bot... Espera unos 15 segundos y recarga esta página.</h2>";
+
 // --- 🛡️ AUTOMATIZACIÓN SEGURA (Sin crasheos) ---
 async function actualizarProgramacion() {
     try {
@@ -32,7 +35,6 @@ async function actualizarProgramacion() {
         const config = {};
         confRes.rows.forEach(r => config[r.clave] = r.valor);
 
-        // Seguro: Solo activa la alarma si la hora existe y tiene el formato correcto (ej. 19:00)
         if (config.dia_cierre && config.hora_cierre && config.hora_cierre.includes(':')) {
             const [h, m] = config.hora_cierre.split(':');
             if (tareaCierre) tareaCierre.stop();
@@ -50,7 +52,7 @@ async function actualizarProgramacion() {
             }, { timezone: "America/Costa_Rica" });
         }
     } catch (e) { 
-        console.log("⚠️ Saltando alarmas: Faltan configuraciones en la base de datos. (Normal si es nueva)"); 
+        console.log("⚠️ Saltando alarmas: Faltan configuraciones en la base de datos."); 
     }
 }
 
@@ -65,17 +67,31 @@ function ejecutarReporte(script, caption) {
     });
 }
 
-// --- 🌟 EL SÚPER TRUCO DEL ENLACE QR ---
-client.on('qr', (qr) => {
-    const enlaceQR = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qr)}`;
-    console.log('\n=========================================');
-    console.log('📲 HAZ CLIC EN ESTE ENLACE PARA VER TU CÓDIGO QR:');
-    console.log(enlaceQR);
-    console.log('=========================================\n');
+// --- 📸 GENERADOR VISUAL DE QR EN TU PÁGINA WEB ---
+client.on('qr', async (qr) => {
+    try {
+        const qrImage = await qrcodeImg.toDataURL(qr);
+        htmlContenido = `
+            <div style="text-align: center; margin-top: 40px; font-family: Arial;">
+                <h1 style="color: #075e54;">🍿 Bot La Fábrica de los Sueños</h1>
+                <h2>📱 Escanea este código con tu WhatsApp</h2>
+                <p>Abre WhatsApp > Dispositivos Vinculados > Vincular un dispositivo</p>
+                <img src="${qrImage}" style="width: 320px; height: 320px; border: 3px solid #333; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);" />
+                <p style="color: gray; margin-top: 20px;"><i>⚠️ El código cambia cada minuto. Si no te funciona, recarga esta página (presiona F5) para ver uno nuevo.</i></p>
+            </div>
+        `;
+        console.log('--- NUEVO QR GENERADO (Míralo en tu página web de Render) ---');
+    } catch (e) { console.log(e); }
 });
 
 client.on('ready', () => { 
     console.log('✅ Sistema SaaS de Cine COMPLETO listo en la NUBE.'); 
+    htmlContenido = `
+        <div style="text-align: center; margin-top: 50px; font-family: Arial;">
+            <h1 style="color: #28a745;">✅ ¡Bot Conectado y Funcionando!</h1>
+            <p>El sistema de reservas está activo y vigilando WhatsApp.</p>
+        </div>
+    `;
     actualizarProgramacion(); 
 });
 
@@ -142,14 +158,12 @@ client.on('message', async msg => {
             await pool.query('UPDATE reservas SET asistio = true WHERE id = $1', [id]);
             msg.reply(`✅ Ticket #${id} validado con éxito. Entrada autorizada.`); 
 
-            // Guardar cliente en BD silenciosamente
             await pool.query(
                 `INSERT INTO clientes (telefono, nombre) VALUES ($1, $2) 
                  ON CONFLICT (telefono) DO UPDATE SET total_reservas = clientes.total_reservas + 1, ultima_visita = CURRENT_TIMESTAMP`,
                 [check.rows[0].telefono_cliente, check.rows[0].nombre_cliente]
             );
 
-            // Mensaje automático al cliente
             const numCliente = `${check.rows[0].telefono_cliente}@c.us`;
             client.sendMessage(numCliente, `🎟️ ¡Hola ${check.rows[0].nombre_cliente}! Gracias por acompañarnos hoy en *La Fábrica de los Sueños*. Recuerda que nuestro cine se sostiene gracias a ti. ¡Date una vuelta por la dulcería y disfruta la función! 🍿🎬`);
             return;
@@ -213,9 +227,9 @@ client.on('message', async msg => {
 
 client.initialize();
 
-// Servidor web obligatorio para Render
-http.createServer((req, res) => { 
-    res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'}); 
-    res.write("<h1 style='font-family:Arial;text-align:center;margin-top:50px;color:green;'>✅ Sistema del Cine Corriendo al 100%</h1>"); 
-    res.end(); 
+// --- 🌐 EL PUERTO WEB PARA MOSTRAR LA IMAGEN ---
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.write(htmlContenido);
+    res.end();
 }).listen(process.env.PORT || 8080);
