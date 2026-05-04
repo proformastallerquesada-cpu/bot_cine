@@ -7,6 +7,11 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 
+// --- 🛡️ ESCUDO ANTI-CRASHEOS GLOBALES ---
+process.on('unhandledRejection', error => {
+    console.log('⚠️ Error de promesa (Ignorado para mantener el bot encendido):', error.message || error);
+});
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL, 
     ssl: { rejectUnauthorized: false }
@@ -14,6 +19,7 @@ const pool = new Pool({
 
 const client = new Client({
     authStrategy: new LocalAuth(),
+    authTimeoutMs: 0, // <-- ⏳ MAGIA: Paciencia infinita para que no de "auth timeout"
     puppeteer: {
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
@@ -25,10 +31,10 @@ let tareaCierre, tareaAsistencia, tareaCobro;
 const numeroDuenio = '50688734753@c.us'; 
 const numeroDelBot = '50664797833';
 
-// --- 🌐 PÁGINA WEB DEL QR (¡De vuelta!) ---
+// --- 🌐 PÁGINA WEB DEL QR ---
 let htmlContenido = "<h2 style='font-family: Arial; text-align: center; margin-top: 50px; color: #555;'>⚙️ Iniciando el motor de tu Bot... Espera unos 15 segundos y recarga esta página.</h2>";
 
-// --- 🛡️ AUTOMATIZACIÓN SEGURA (Sin crasheos) ---
+// --- 🛡️ AUTOMATIZACIÓN SEGURA ---
 async function actualizarProgramacion() {
     try {
         const confRes = await pool.query("SELECT clave, valor FROM configuracion");
