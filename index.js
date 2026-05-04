@@ -19,7 +19,7 @@ const pool = new Pool({
 
 const client = new Client({
     authStrategy: new LocalAuth(),
-    authTimeoutMs: 0, // <-- ⏳ MAGIA: Paciencia infinita para que no de "auth timeout"
+    authTimeoutMs: 0, // Paciencia infinita para Render
     puppeteer: {
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
@@ -105,9 +105,9 @@ client.on('ready', () => {
 client.on('message', async msg => {
     try {
         const chat = msg.body.toLowerCase().trim();
-        const contacto = await msg.getContact();
-        let fone = contacto.number || msg.from.split('@')[0];
-        if (fone.includes('lid')) fone = msg.from.split('@')[0];
+        
+        // CORRECCIÓN APLICADA: Respuesta inmediata sin buscar en la agenda
+        let fone = msg.from.split('@')[0];
 
         // Reset de emergencia
         if (chat === 'reset') {
