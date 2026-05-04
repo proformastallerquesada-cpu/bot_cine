@@ -6,10 +6,9 @@ const cron = require('node-cron');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const http = require('http'); // <-- Nueva librería para el salva-vidas de Render
+const http = require('http'); // Salva-vidas de Render
 
 // --- ☁️ CONEXIÓN A NEON (SEGURA PARA LA NUBE) ---
-// Ahora usa una variable de entorno en lugar de mostrar tu contraseña
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL, 
     ssl: {
@@ -17,7 +16,23 @@ const pool = new Pool({
     }
 });
 
-const client = new Client({ authStrategy: new LocalAuth() });
+// --- 🤖 NAVEGADOR CONFIGURADO PARA RENDER ---
+const client = new Client({
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu'
+        ]
+    }
+});
 
 let sesiones = {};
 let tareaCierre; let tareaAsistencia; let tareaCobro;
@@ -74,7 +89,7 @@ function ejecutarReporte(script, caption) {
 }
 
 client.on('qr', (qr) => {
-    console.log('ESCANEA ESTE CÓDIGO QR:');
+    console.log('--- ESCANEA ESTE CÓDIGO QR ---');
     qrcodeTerminal.generate(qr, { small: true });
 });
 
@@ -295,8 +310,7 @@ client.on('message', async msg => {
 client.initialize();
 
 // --- 🛟 SALVAVIDAS PARA RENDER (Keep-Alive) ---
-const http = require('http');
 http.createServer((req, res) => {
-    res.write("Bot del Cine Activo y Escuchando");
+    res.write("Bot del Cine Activo");
     res.end();
 }).listen(process.env.PORT || 8080);
