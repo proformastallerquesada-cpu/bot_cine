@@ -1,133 +1,95 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcodeImg = require('qrcode');
 const { Pool } = require('pg');
-const cron = require('node-cron');
-const { exec } = require('child_process');
-const path = require('path');
-const fs = require('fs');
 const http = require('http');
 
-// --- 🛡️ ESCUDO ANTI-CRASHEOS GLOBALES ---
+// --- 🛡️ ESCUDO ANTI-CRASHEOS ---
 process.on('unhandledRejection', error => {
-    console.log('⚠️ Error de promesa (Ignorado para mantener el bot encendido):', error.message || error);
+    console.log('⚠️ Aviso del servidor (Ignorado para no apagar el bot):', error.message || error);
 });
 
+// --- 🗄️ CONEXIÓN A BASE DE DATOS (NEON) ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL, 
     ssl: { rejectUnauthorized: false }
 });
 
+// --- 🤖 CONFIGURACIÓN DEL BOT (VERSIÓN PRO) ---
 const client = new Client({
     authStrategy: new LocalAuth(),
-    authTimeoutMs: 0, // Paciencia infinita para Render
+    authTimeoutMs: 0, // ⏳ Paciencia infinita para que no se desconecte
     puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+        args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox', 
+            '--disable-dev-shm-usage', 
+            '--disable-gpu',
+            '--single-process'
+        ],
+        timeout: 0
     }
 });
 
 let sesiones = {};
-let tareaCierre, tareaAsistencia, tareaCobro;
-const numeroDuenio = '50688734753@c.us'; 
-const numeroDelBot = '50664797833';
+let htmlContenido = "<h2 style='text-align:center;font-family:Arial;color:#555;margin-top:50px;'>⚙️ El motor PRO está encendiendo... Espera 30 segundos y presiona F5.</h2>";
 
-// --- 🌐 PÁGINA WEB DEL QR ---
-let htmlContenido = "<h2 style='font-family: Arial; text-align: center; margin-top: 50px; color: #555;'>⚙️ Iniciando el motor de tu Bot... Espera unos 15 segundos y recarga esta página.</h2>";
+const numeroDelBot = '50664797833'; // Tu número de bot para los QR
 
-// --- 🛡️ AUTOMATIZACIÓN SEGURA ---
-async function actualizarProgramacion() {
-    try {
-        const confRes = await pool.query("SELECT clave, valor FROM configuracion");
-        const config = {};
-        confRes.rows.forEach(r => config[r.clave] = r.valor);
-
-        if (config.dia_cierre && config.hora_cierre && config.hora_cierre.includes(':')) {
-            const [h, m] = config.hora_cierre.split(':');
-            if (tareaCierre) tareaCierre.stop();
-            tareaCierre = cron.schedule(`${m} ${h} * * ${config.dia_cierre}`, async () => {
-                await pool.query('UPDATE peliculas SET cupos_disponibles = 0');
-                ejecutarReporte('reporte.py', '📊 *Reporte de Reservas (Previo)*');
-            }, { timezone: "America/Costa_Rica" });
-        }
-
-        if (config.dia_asistencia && config.hora_asistencia && config.hora_asistencia.includes(':')) {
-            const [h, m] = config.hora_asistencia.split(':');
-            if (tareaAsistencia) tareaAsistencia.stop();
-            tareaAsistencia = cron.schedule(`${m} ${h} * * ${config.dia_asistencia}`, async () => {
-                ejecutarReporte('reporte_asistencia.py', '📋 *Reporte de Asistencia Final (Real)*');
-            }, { timezone: "America/Costa_Rica" });
-        }
-    } catch (e) { 
-        console.log("⚠️ Saltando alarmas: Faltan configuraciones en la base de datos."); 
-    }
-}
-
-function ejecutarReporte(script, caption) {
-    const sPath = path.join(__dirname, script);
-    exec(`python "${sPath}"`, (error) => {
-        if (error) return;
-        const f = new Date().toLocaleDateString('es-CR').replace(/\//g, '-');
-        const n = script === 'reporte.py' ? `${f}.xlsx` : `Asistencia_Final_${f}.xlsx`;
-        const r = path.join(__dirname, n);
-        if (fs.existsSync(r)) client.sendMessage(numeroDuenio, MessageMedia.fromFilePath(r), { caption });
-    });
-}
-
-// --- 📸 GENERADOR VISUAL DE QR EN TU PÁGINA WEB ---
+// --- 📸 PANTALLA WEB PARA ESCANEAR EL QR ---
 client.on('qr', async (qr) => {
     try {
         const qrImage = await qrcodeImg.toDataURL(qr);
         htmlContenido = `
-            <div style="text-align: center; margin-top: 40px; font-family: Arial;">
-                <h1 style="color: #075e54;">🍿 Bot La Fábrica de los Sueños</h1>
-                <h2>📱 Escanea este código con tu WhatsApp</h2>
-                <p>Abre WhatsApp > Dispositivos Vinculados > Vincular un dispositivo</p>
-                <img src="${qrImage}" style="width: 320px; height: 320px; border: 3px solid #333; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);" />
-                <p style="color: gray; margin-top: 20px;"><i>⚠️ El código cambia cada minuto. Si no te funciona, recarga esta página (presiona F5) para ver uno nuevo.</i></p>
-            </div>
-        `;
-        console.log('--- NUEVO QR GENERADO (Míralo en tu página web de Render) ---');
+            <div style="text-align:center;margin-top:40px;font-family:Arial;">
+                <h1 style="color:#075e54;">🍿 Bot La Fábrica de los Sueños (PRO)</h1>
+                <p>Abre WhatsApp > Dispositivos Vinculados > Escanear QR</p>
+                <img src="${qrImage}" style="width:320px;height:320px;border:4px solid #333;border-radius:15px;box-shadow: 0 4px 10px rgba(0,0,0,0.2);" />
+                <p style="color:gray;margin-top:15px;"><i>⚠️ El código se renueva cada minuto por seguridad.</i></p>
+            </div>`;
+        console.log('--- NUEVO QR GENERADO EN LA WEB ---');
     } catch (e) { console.log(e); }
 });
 
+client.on('authenticated', () => { console.log('✅ SESIÓN AUTENTICADA CON ÉXITO'); });
+
 client.on('ready', () => { 
-    console.log('✅ Sistema SaaS de Cine COMPLETO listo en la NUBE.'); 
+    console.log('🚀 SISTEMA SAAS DE CINE CORRIENDO AL 100%'); 
     htmlContenido = `
-        <div style="text-align: center; margin-top: 50px; font-family: Arial;">
-            <h1 style="color: #28a745;">✅ ¡Bot Conectado y Funcionando!</h1>
-            <p>El sistema de reservas está activo y vigilando WhatsApp.</p>
-        </div>
-    `;
-    actualizarProgramacion(); 
+        <div style="text-align:center;margin-top:50px;font-family:Arial;">
+            <h1 style="color:#28a745;">✅ ¡Bot Conectado y Listo para Vender!</h1>
+            <p>El sistema de reservas está activo y monitoreando WhatsApp 24/7.</p>
+        </div>`;
 });
 
-// --- 🤖 CEREBRO DEL BOT COMPLETO ---
+// --- 🧠 CEREBRO DEL BOT COMPLETO ---
 client.on('message', async msg => {
     try {
-        const chat = msg.body.toLowerCase().trim();
+        console.log(`📩 Mensaje de [${msg.from}]: ${msg.body}`); // Registro en pantalla negra
         
-        // CORRECCIÓN APLICADA: Respuesta inmediata sin buscar en la agenda
-        let fone = msg.from.split('@')[0];
+        const chat = msg.body.toLowerCase().trim();
+        let fone = msg.from.split('@')[0]; // Identificador súper rápido
 
-        // Reset de emergencia
+        // Reset manual
         if (chat === 'reset') {
             delete sesiones[fone];
-            msg.reply('🔄 Sesión reiniciada con éxito.');
+            msg.reply('🔄 Sesión reiniciada. Escribe "hola" para volver al menú.');
             return;
         }
 
-        // --- 🛠️ MODO ADMIN ---
+        // --- 🛠️ MODO ADMINISTRADOR ---
         if (chat === '*admin*') {
             sesiones[fone] = { paso: 'menu_admin' };
-            msg.reply('🛠️ *MODO ADMIN*\n\n1. Agregar Película\n2. Ver Cartelera\n3. Eliminar Película\n4. Ver Resumen de Cobro');
+            msg.reply('🛠️ *MODO ADMIN CINE*\n\n1. 🎬 Agregar Película\n2. 📋 Ver Cartelera\n3. 🗑️ Eliminar Película\n4. 💰 Ver Resumen de Reservas');
             return;
         }
 
         if (sesiones[fone]?.paso === 'menu_admin') {
-            if (chat === '1') { sesiones[fone].paso = 'admin_titulo'; msg.reply('🎬 Título de la película:'); return; }
+            if (chat === '1') { sesiones[fone].paso = 'admin_titulo'; msg.reply('🎬 Escribe el Título de la película:'); return; }
             else if (chat === '2') {
                 const r = await pool.query('SELECT id, titulo, horario, cupos_disponibles FROM peliculas');
-                let l = '🎬 *Cartelera Actual:*\n\n'; r.rows.forEach(p => l += `ID: ${p.id} | ${p.titulo} (${p.horario}) | Cupos: ${p.cupos_disponibles}\n`);
+                if (r.rows.length === 0) { msg.reply('⚠️ La cartelera está vacía.'); delete sesiones[fone]; return; }
+                let l = '🎬 *Cartelera Actual:*\n\n'; r.rows.forEach(p => l += `ID: ${p.id} | ${p.titulo} (${p.horario}) | Cupos libres: ${p.cupos_disponibles}\n`);
                 msg.reply(l); delete sesiones[fone]; return;
             }
             else if (chat === '3') {
@@ -137,48 +99,42 @@ client.on('message', async msg => {
             }
             else if (chat === '4') {
                 const r = await pool.query('SELECT COUNT(id) as t, SUM(cantidad_personas) as p FROM reservas');
-                msg.reply(`💰 *COBRO Y ESTADÍSTICAS*\n\nTickets emitidos: ${r.rows[0].t}\nPersonas totales: ${r.rows[0].p || 0}`);
+                msg.reply(`💰 *RESUMEN DE TAQUILLA*\n\nTickets emitidos: ${r.rows[0].t}\nPersonas totales reservadas: ${r.rows[0].p || 0}`);
                 delete sesiones[fone]; return;
             }
         }
 
-        if (sesiones[fone]?.paso === 'admin_titulo') { sesiones[fone].titulo = msg.body; sesiones[fone].paso = 'admin_horario'; msg.reply('⏰ Horario (Ej: 7:00 PM):'); return; }
-        if (sesiones[fone]?.paso === 'admin_horario') { sesiones[fone].horario = msg.body; sesiones[fone].paso = 'admin_cupos'; msg.reply('🪑 Cupos totales:'); return; }
+        if (sesiones[fone]?.paso === 'admin_titulo') { sesiones[fone].titulo = msg.body; sesiones[fone].paso = 'admin_horario'; msg.reply('⏰ Horario (Ej: 7:30 PM):'); return; }
+        if (sesiones[fone]?.paso === 'admin_horario') { sesiones[fone].horario = msg.body; sesiones[fone].paso = 'admin_cupos'; msg.reply('🪑 Cupos totales en la sala (Ej: 150):'); return; }
         if (sesiones[fone]?.paso === 'admin_cupos') {
             await pool.query('INSERT INTO peliculas (titulo, horario, cupo_total, cupos_disponibles) VALUES ($1,$2,$3,$4)', [sesiones[fone].titulo, sesiones[fone].horario, parseInt(chat), parseInt(chat)]);
-            msg.reply('✅ Película agregada a la base de datos.'); delete sesiones[fone]; return;
+            msg.reply('✅ Película agregada a la cartelera.'); delete sesiones[fone]; return;
         }
         if (sesiones[fone]?.paso === 'admin_eliminar_pelicula') {
             await pool.query('DELETE FROM reservas WHERE pelicula_id = $1', [chat]);
             await pool.query('DELETE FROM peliculas WHERE id = $1', [chat]);
-            msg.reply('✅ Película eliminada.'); delete sesiones[fone]; return;
+            msg.reply('✅ Película y reservas eliminadas.'); delete sesiones[fone]; return;
         }
 
-        // --- 🎫 VALIDAR TICKET EN PUERTA ---
+        // --- 🎫 ESCÁNER DE ENTRADA (VALIDAR TICKET) ---
         if (chat.startsWith('*validar ')) {
             const id = parseInt(chat.split(' ')[1]);
             const check = await pool.query('SELECT asistio, telefono_cliente, nombre_cliente FROM reservas WHERE id = $1', [id]);
             if (check.rows.length === 0) return msg.reply(`⚠️ No existe el ticket #${id}.`);
-            if (check.rows[0].asistio) return msg.reply(`⚠️ Ticket #${id} YA fue validado anteriormente.`);
+            if (check.rows[0].asistio) return msg.reply(`⚠️ CUIDADO: El Ticket #${id} YA FUE USADO.`);
             
             await pool.query('UPDATE reservas SET asistio = true WHERE id = $1', [id]);
-            msg.reply(`✅ Ticket #${id} validado con éxito. Entrada autorizada.`); 
-
-            await pool.query(
-                `INSERT INTO clientes (telefono, nombre) VALUES ($1, $2) 
-                 ON CONFLICT (telefono) DO UPDATE SET total_reservas = clientes.total_reservas + 1, ultima_visita = CURRENT_TIMESTAMP`,
-                [check.rows[0].telefono_cliente, check.rows[0].nombre_cliente]
-            );
+            msg.reply(`✅ Entrada Autorizada. Ticket #${id} validado.`); 
 
             const numCliente = `${check.rows[0].telefono_cliente}@c.us`;
-            client.sendMessage(numCliente, `🎟️ ¡Hola ${check.rows[0].nombre_cliente}! Gracias por acompañarnos hoy en *La Fábrica de los Sueños*. Recuerda que nuestro cine se sostiene gracias a ti. ¡Date una vuelta por la dulcería y disfruta la función! 🍿🎬`);
+            client.sendMessage(numCliente, `🎟️ ¡Hola ${check.rows[0].nombre_cliente}! Gracias por acompañarnos en *La Fábrica de los Sueños*. ¡Disfruta la película y no olvides pasar por nuestra dulcería! 🍿🎬`);
             return;
         }
 
-        // --- 🍿 MENÚ CLIENTE NORMAL ---
+        // --- 🍿 MENÚ PÚBLICO DE CLIENTES ---
         if (['hola', 'menu', 'inicio', 'menú', 'buenas'].includes(chat)) {
             delete sesiones[fone];
-            msg.reply('🍿 *Cine Club La Fábrica de los Sueños* 🎬\n\n*1.* 🎟️ Reservar Entradas\n*2.* ❓ ¿Cómo funciona?\n*3.* 📍 Ubicación\n*4.* 👤 Hablar con Encargado');
+            msg.reply('🍿 *Cine Club La Fábrica de los Sueños* 🎬\n\nBienvenido a nuestra cartelera automática. Responde con un número:\n\n*1.* 🎟️ Ver Cartelera y Reservar\n*2.* ❓ ¿Cómo funciona?\n*3.* 📍 Ubicación\n*4.* 👤 Hablar con Encargado');
             return;
         }
 
@@ -187,14 +143,14 @@ client.on('message', async msg => {
             if (res.rows.length === 0) return msg.reply('Lo sentimos, en este momento no hay funciones con espacios disponibles. 😔');
             let l = '🎬 *Cartelera Disponible:*\n\n';
             res.rows.forEach(p => l += `ID: *${p.id}* - ${p.titulo} (${p.horario})\n`);
-            msg.reply(l + '\nEnvía el número de *ID* de la película que deseas ver:');
+            msg.reply(l + '\n👉 *Envía solo el número de ID* de la película que deseas ver:');
             sesiones[fone] = { paso: 'eligiendo_pelicula' };
             return;
         } 
         
         if (sesiones[fone]?.paso === 'eligiendo_pelicula') {
             sesiones[fone] = { paso: 'esperando_nombre', peliculaId: chat }; 
-            msg.reply('Excelente. ¿A nombre de quién hacemos la reserva?');
+            msg.reply('Excelente. ¿A nombre de quién hacemos la reserva? (Nombre y Apellido)');
             return;
         }
         
@@ -212,30 +168,30 @@ client.on('message', async msg => {
             const r = await pool.query('INSERT INTO reservas (telefono_cliente, nombre_cliente, pelicula_id, cantidad_personas) VALUES ($1,$2,$3,$4) RETURNING id', [fone, sesiones[fone].nombre, sesiones[fone].peliculaId, can]);
             await pool.query('UPDATE peliculas SET cupos_disponibles = cupos_disponibles - $1 WHERE id = $2', [can, sesiones[fone].peliculaId]);
             
-            // Generador del QR del Ticket
+            // Crea el Ticket QR
             const link = `https://wa.me/${numeroDelBot}?text=*validar%20${r.rows[0].id}*`;
             const qrTicket = await qrcodeImg.toDataURL(link);
             const media = new MessageMedia('image/png', qrTicket.split(',')[1], 'ticket.png');
             
-            await client.sendMessage(msg.from, media, { caption: `✅ *RESERVA CONFIRMADA*\n\n👤 A nombre de: ${sesiones[fone].nombre}\n👥 Espacios: ${can}\n🎫 Número de Ticket: #${r.rows[0].id}\n\nPresenta este código QR en la entrada.` });
+            await client.sendMessage(msg.from, media, { caption: `✅ *RESERVA CONFIRMADA*\n\n👤 A nombre de: ${sesiones[fone].nombre}\n👥 Espacios: ${can}\n🎫 Número de Ticket: #${r.rows[0].id}\n\nPresenta este código QR en la entrada del cine.` });
             delete sesiones[fone];
             return;
         }
         
-        if (chat === '2') { msg.reply('🎥 La entrada es **totalmente gratis**. Nuestro proyecto cultural se sostiene exclusivamente gracias a nuestra Dulcería 🍿. ¡Apóyanos comprando tus snacks con nosotros!'); } 
+        if (chat === '2') { msg.reply('🎥 Nuestro modelo de cine es único. La entrada es **totalmente gratis**. El proyecto cultural se sostiene exclusivamente gracias a nuestra Dulcería 🍿. ¡Llega temprano, compra tus snacks y apóyanos!'); } 
         else if (chat === '3') { msg.reply('📍 *Ubicación*\nAntigua sala de cine, Mall Plaza Paraíso.\nWaze: https://waze.com/ul?q=Mall+Plaza+Paraiso'); } 
         else if (chat === '4') { msg.reply('👤 Clic aquí para hablar directamente con el administrador:\nhttps://wa.me/50688734753'); }
 
     } catch (e) { 
-        console.log("Error en el chat:", e); 
+        console.log("❌ Error procesando el mensaje:", e); 
     }
 });
 
 client.initialize();
 
-// --- 🌐 EL PUERTO WEB PARA MOSTRAR LA IMAGEN ---
+// --- 🌐 SERVIDOR WEB ---
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.write(htmlContenido);
     res.end();
-}).listen(process.env.PORT || 8080);
+}).listen(process.env.PORT || 10000);
