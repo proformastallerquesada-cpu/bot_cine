@@ -3,9 +3,12 @@ const qrcodeImg = require('qrcode');
 const { Pool } = require('pg');
 const http = require('http');
 
-// --- 🛡️ ESCUDO ANTI-CRASHEOS ---
+// --- 🛡️ CHALECO ANTIBALAS EXTREMO ---
 process.on('unhandledRejection', error => {
-    console.log('⚠️ Aviso del servidor (Ignorado para no apagar el bot):', error.message || error);
+    console.log('⚠️ Promesa ignorada (Normal en sincronización):', error.message || error);
+});
+process.on('uncaughtException', error => {
+    console.log('💥 ERROR FATAL EVITADO (El bot sigue vivo):', error.message || error);
 });
 
 // --- 🗄️ CONEXIÓN A BASE DE DATOS (NEON) ---
@@ -14,10 +17,10 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// --- 🤖 CONFIGURACIÓN DEL BOT (VERSIÓN PRO) ---
+// --- 🤖 CONFIGURACIÓN DEL BOT ---
 const client = new Client({
     authStrategy: new LocalAuth(),
-    authTimeoutMs: 0, // ⏳ Paciencia infinita para que no se desconecte
+    authTimeoutMs: 0, // ⏳ Paciencia infinita
     puppeteer: {
         headless: true,
         args: [
@@ -25,33 +28,42 @@ const client = new Client({
             '--disable-setuid-sandbox', 
             '--disable-dev-shm-usage', 
             '--disable-gpu',
-            '--single-process'
+            '--single-process',
+            '--no-zygote'
         ],
         timeout: 0
     }
 });
 
 let sesiones = {};
-let htmlContenido = "<h2 style='text-align:center;font-family:Arial;color:#555;margin-top:50px;'>⚙️ El motor PRO está encendiendo... Espera 30 segundos y presiona F5.</h2>";
+let htmlContenido = "<h2 style='text-align:center;font-family:Arial;margin-top:50px;color:#555;'>⚙️ Bot PRO encendiendo... Espera unos segundos y presiona F5.</h2>";
 
-const numeroDelBot = '50664797833'; // Tu número de bot para los QR
+const numeroDelBot = '50664797833'; // Tu número de bot
 
-// --- 📸 PANTALLA WEB PARA ESCANEAR EL QR ---
+// --- 📸 GENERADOR VISUAL DE QR ---
 client.on('qr', async (qr) => {
     try {
         const qrImage = await qrcodeImg.toDataURL(qr);
         htmlContenido = `
             <div style="text-align:center;margin-top:40px;font-family:Arial;">
-                <h1 style="color:#075e54;">🍿 Bot La Fábrica de los Sueños (PRO)</h1>
-                <p>Abre WhatsApp > Dispositivos Vinculados > Escanear QR</p>
+                <h1 style="color:#075e54;">🍿 Bot La Fábrica de los Sueños</h1>
+                <p>Escanea este código y <b>MANTÉN LA PANTALLA DEL CELULAR ENCENDIDA</b> por 3 minutos.</p>
                 <img src="${qrImage}" style="width:320px;height:320px;border:4px solid #333;border-radius:15px;box-shadow: 0 4px 10px rgba(0,0,0,0.2);" />
-                <p style="color:gray;margin-top:15px;"><i>⚠️ El código se renueva cada minuto por seguridad.</i></p>
+                <p style="color:gray;margin-top:15px;"><i>⚠️ Si falla, presiona F5 para generar un QR nuevo.</i></p>
             </div>`;
-        console.log('--- NUEVO QR GENERADO EN LA WEB ---');
-    } catch (e) { console.log(e); }
+        console.log('--- NUEVO QR GENERADO ---');
+    } catch (e) { console.log("Error de imagen QR", e); }
 });
 
-client.on('authenticated', () => { console.log('✅ SESIÓN AUTENTICADA CON ÉXITO'); });
+// Eventos de seguridad para monitorear Render
+client.on('authenticated', () => { 
+    console.log('✅ SESIÓN AUTENTICADA. Descargando mensajes... ¡NO APAGUES LA PANTALLA DEL CELULAR!'); 
+});
+
+client.on('disconnected', (reason) => {
+    console.log('⚠️ WHATSAPP SE DESCONECTÓ. Razón:', reason);
+    console.log('🔄 El bot intentará reconectarse automáticamente en breve.');
+});
 
 client.on('ready', () => { 
     console.log('🚀 SISTEMA SAAS DE CINE CORRIENDO AL 100%'); 
@@ -65,10 +77,13 @@ client.on('ready', () => {
 // --- 🧠 CEREBRO DEL BOT COMPLETO ---
 client.on('message', async msg => {
     try {
-        console.log(`📩 Mensaje de [${msg.from}]: ${msg.body}`); // Registro en pantalla negra
+        // Ignora stickers o imágenes sin texto para no crashear
+        if (!msg.body) return; 
+
+        console.log(`📩 Mensaje de [${msg.from}]: ${msg.body}`); // Verás esto en la pantalla negra
         
         const chat = msg.body.toLowerCase().trim();
-        let fone = msg.from.split('@')[0]; // Identificador súper rápido
+        let fone = msg.from.split('@')[0]; 
 
         // Reset manual
         if (chat === 'reset') {
@@ -183,7 +198,7 @@ client.on('message', async msg => {
         else if (chat === '4') { msg.reply('👤 Clic aquí para hablar directamente con el administrador:\nhttps://wa.me/50688734753'); }
 
     } catch (e) { 
-        console.log("❌ Error procesando el mensaje:", e); 
+        console.log("❌ Error procesando el mensaje:", e.message); 
     }
 });
 
