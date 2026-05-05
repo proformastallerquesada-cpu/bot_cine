@@ -344,6 +344,14 @@ client.on('message', async msg => {
 
 client.initialize();
 
+} catch (e) { 
+        console.log("❌ ERROR CRÍTICO PROCESANDO EL MENSAJE:", e.message); 
+    }
+});
+
+// 🔥 ESTA ES LA CHISPA DE ENCENDIDO (Asegúrate de que esté aquí)
+client.initialize();
+
 // ============================================================================
 // 🌐 MÓDULO 6: SERVIDOR WEB (SOLUCIÓN DEFINITIVA A LOS REINICIOS DE RENDER)
 // ============================================================================
