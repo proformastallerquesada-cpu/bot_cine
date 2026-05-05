@@ -27,7 +27,6 @@ const pool = new Pool({
 // 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR WHATSAPP (OPTIMIZADO PARA NUBE)
 // ============================================================================
 const client = new Client({
-    // LocalAuth creará la carpeta .wwebjs_auth (protegida por tu disco en Render)
     authStrategy: new LocalAuth(),
     authTimeoutMs: 0, 
     puppeteer: {
@@ -38,11 +37,11 @@ const client = new Client({
             '--disable-dev-shm-usage', 
             '--disable-gpu',
             '--no-zygote',
-            '--single-process', // Crucial para servidores Render
             '--disable-extensions', 
-            '--disable-accelerated-2d-canvas' 
+            '--disable-accelerated-2d-canvas',
+            '--disable-software-rasterizer' // Ayuda extra para evitar crasheos en Render
         ],
-        timeout: 0
+        timeout: 0 // Sin límite de tiempo para arrancar
     }
 });
 
