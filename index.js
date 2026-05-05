@@ -2,22 +2,6 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcodeImg = require('qrcode');
 const { Pool } = require('pg');
 const http = require('http');
-const fs = require('fs'); 
-const path = require('path'); 
-
-// ============================================================================
-// 🧹 MÓDULO 0: SÚPER CONSERJE
-// ============================================================================
-const sessionPath = path.join(process.cwd(), '.wwebjs_auth', 'session');
-const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
-
-console.log("🧹 Limpiando bloqueos...");
-if (fs.existsSync(sessionPath)) {
-    lockFiles.forEach(file => {
-        const filePath = path.join(sessionPath, file);
-        try { fs.rmSync(filePath, { force: true }); } catch (e) {}
-    });
-}
 
 // ============================================================================
 // 🛡️ MÓDULO 1: PROTECCIÓN
@@ -38,18 +22,23 @@ const pool = new Pool({
 });
 
 // ============================================================================
-// 🚀 MÓDULO 3: CONFIGURACIÓN OFICIAL DE RENDER (SIN INVENTOS)
+// 🚀 MÓDULO 3: CONFIGURACIÓN (CON CAMBIO DE IDENTIDAD PARA EVITAR CORRUPCIÓN)
 // ============================================================================
+console.log("⏳ [1/4] Configurando cliente de WhatsApp...");
+
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    // 🔥 EL TRUCO MAESTRO: Le damos un ID nuevo para que cree una carpeta limpia y fresca.
+    authStrategy: new LocalAuth({ clientId: 'cine-oficial-v1' }),
     puppeteer: {
         headless: true,
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox', 
             '--disable-dev-shm-usage', 
-            '--disable-gpu'
-        ]
+            '--disable-gpu',
+            '--no-zygote'
+        ],
+        timeout: 60000 // Le damos 60 segundos máximos para arrancar o que tire error.
     }
 });
 
@@ -63,6 +52,7 @@ const port = process.env.PORT || 10000;
 // ============================================================================
 client.on('qr', async (qr) => {
     try {
+        console.log("✅ [3/4] WhatsApp solicitó un Código QR. Generando imagen...");
         const qrImage = await qrcodeImg.toDataURL(qr);
         htmlContenido = `
             <div style="text-align:center;margin-top:40px;font-family:Arial;">
@@ -70,18 +60,18 @@ client.on('qr', async (qr) => {
                 <p>Escanea este código con tu WhatsApp Business.</p>
                 <img src="${qrImage}" style="width:300px;height:300px;border:4px solid #075e54;border-radius:15px;" />
             </div>`;
-        console.log('--- 🔄 NUEVO CÓDIGO QR LISTO ---');
+        console.log('--- 🔄 NUEVO CÓDIGO QR LISTO EN LA PÁGINA WEB ---');
     } catch (e) {
         console.log("❌ Error generando QR:", e.message);
     }
 });
 
 client.on('authenticated', () => { 
-    console.log('✅ SESIÓN AUTENTICADA. Todo guardado.'); 
+    console.log('✅ [3/4] SESIÓN AUTENTICADA. Credenciales limpias guardadas.'); 
 });
 
 client.on('ready', () => { 
-    console.log('🚀 SISTEMA ONLINE - RECIBIENDO MENSAJES'); 
+    console.log('🚀 [4/4] SISTEMA ONLINE - RECIBIENDO MENSAJES'); 
     htmlContenido = `
         <div style="text-align:center;margin-top:50px;font-family:Arial;">
             <h1 style="color:#28a745;">✅ ¡Bot Conectado y En Línea!</h1>
@@ -89,13 +79,8 @@ client.on('ready', () => {
         </div>`;
 });
 
-// Ayuda extra para saber si WhatsApp se desconecta
-client.on('disconnected', (reason) => {
-    console.log('⚠️ WHATSAPP SE DESCONECTÓ:', reason);
-});
-
 // ============================================================================
-// 🧠 MÓDULO 5: LÓGICA DEL BOT
+// 🧠 MÓDULO 5: LÓGICA DEL BOT (RESUMIDA)
 // ============================================================================
 client.on('message', async msg => {
     try {
@@ -166,9 +151,13 @@ client.on('message', async msg => {
 });
 
 // ============================================================================
-// 🔥 ENCENDIDO Y SERVIDOR WEB 
+// 🔥 ENCENDIDO Y SERVIDOR WEB
 // ============================================================================
-client.initialize().catch(err => console.log("❌ Error fatal al iniciar Chrome:", err));
+
+console.log("⚙️ [2/4] Enviando orden de encendido al navegador...");
+client.initialize()
+    .then(() => console.log("✔️ Navegador Chrome iniciado con éxito."))
+    .catch(err => console.log("❌ ERROR FATAL AL INICIAR CHROME:", err));
 
 http.createServer((req, res) => {
     try {
@@ -180,5 +169,5 @@ http.createServer((req, res) => {
         res.end("Error en el servidor");
     }
 }).listen(port, '0.0.0.0', () => {
-    console.log(`🌐 Servidor escuchando en puerto ${port}`);
+    console.log(`🌐 Servidor Web escuchando en puerto ${port} (Health Check de Render OK)`);
 });
