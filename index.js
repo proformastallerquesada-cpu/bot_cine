@@ -1,5 +1,5 @@
 // ============================================================================
-// 📦 IMPORTACIONES Y VARIABLES GLOBALES (BLINDADAS AL INICIO)
+// 📦 IMPORTACIONES Y VARIABLES GLOBALES
 // ============================================================================
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcodeImg = require('qrcode');
@@ -8,7 +8,6 @@ const http = require('http');
 const fs = require('fs'); 
 const path = require('path'); 
 
-// Variables de estado (Definidas al inicio para evitar el error "not defined")
 let sesiones = {}; 
 let htmlContenido = "<h2 style='text-align:center;font-family:Arial;margin-top:50px;color:#333;'>⚙️ Inicializando Sistema de Cine... (Por favor espera 2-3 minutos)</h2>";
 const numeroDelBot = '50664797833'; 
@@ -52,7 +51,7 @@ const pool = new Pool({
 });
 
 // ============================================================================
-// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR (MODO AHORRO EXTREMO)
+// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR (MODO ZEN / AHORRO EXTREMO)
 // ============================================================================
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -65,14 +64,26 @@ const client = new Client({
             '--disable-dev-shm-usage', 
             '--disable-gpu',
             '--no-zygote',
-            '--single-process', // Ahorra el 50% de la RAM
+            '--single-process', 
             '--disable-extensions', 
             '--disable-accelerated-2d-canvas',
             '--disable-software-rasterizer',
-            '--mute-audio'
+            '--mute-audio',
+            '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-breakpad',
+            '--disable-component-extensions-with-background-pages',
+            '--disable-features=TranslateUI,BlinkGenPropertyTrees',
+            '--disable-ipc-flooding-protection',
+            '--disable-renderer-backgrounding',
+            '--enable-features=NetworkService,NetworkServiceInProcess',
+            '--force-color-profile=srgb',
+            '--metrics-recording-only'
         ],
-        timeout: 0, 
-        protocolTimeout: 0 // Paciencia infinita para Render
+        // Le damos 5 minutos completos a Chrome para arrancar si es necesario
+        timeout: 300000, 
+        protocolTimeout: 300000 
     }
 });
 
@@ -109,7 +120,7 @@ client.on('ready', () => {
 });
 
 // ============================================================================
-// 🧠 MÓDULO 5: LÓGICA DEL BOT (RESUMIDA Y LIMPIA)
+// 🧠 MÓDULO 5: LÓGICA DEL BOT
 // ============================================================================
 client.on('message', async msg => {
     try {
@@ -117,7 +128,6 @@ client.on('message', async msg => {
         const chat = msg.body.toLowerCase().trim();
         let fone = msg.from.split('@')[0]; 
 
-        // Menú de bienvenida
         if (['reset', 'hola', 'menu', 'inicio', 'buenas'].includes(chat)) {
             delete sesiones[fone];
             return msg.reply(
@@ -130,7 +140,6 @@ client.on('message', async msg => {
             );
         }
 
-        // --- FLUJO RESERVA ---
         if (sesiones[fone] && sesiones[fone].paso) {
             const paso = sesiones[fone].paso;
 
@@ -166,7 +175,6 @@ client.on('message', async msg => {
             }
         }
 
-        // Acciones Rápidas
         if (chat === '1') {
             const res = await pool.query('SELECT * FROM peliculas WHERE cupos_disponibles > 0 ORDER BY id ASC');
             if (res.rows.length === 0) return msg.reply('No hay funciones disponibles hoy. 😔');
@@ -183,14 +191,13 @@ client.on('message', async msg => {
 });
 
 // ============================================================================
-// 🔥 ENCENDIDO Y SERVIDOR WEB (A PRUEBA DE ERRORES)
+// 🔥 ENCENDIDO Y SERVIDOR WEB
 // ============================================================================
 client.initialize();
 
 http.createServer((req, res) => {
     try {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        // Usamos un fallback por si la variable llegara a fallar (aunque ya no debería)
         res.write(htmlContenido || "<h2>Cargando sistema... Refresca en un momento.</h2>");
         res.end();
     } catch (err) {
