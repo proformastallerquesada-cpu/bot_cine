@@ -2,11 +2,12 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcodeImg = require('qrcode');
 const { Pool } = require('pg');
 const http = require('http');
+const fs = require('fs'); // Librería nativa para leer archivos
+const path = require('path'); // Librería nativa para rutas
 
 // ============================================================================
 // 🛡️ MÓDULO 1: PROTECCIÓN CONTRA CRASHEOS DEL SERVIDOR (RENDER)
 // ============================================================================
-// Esto evita que un error de conexión momentáneo apague todo el bot
 process.on('unhandledRejection', error => { 
     console.log('⚠️ [PREVENCIÓN] Promesa ignorada:', error.message || error); 
 });
@@ -17,14 +18,13 @@ process.on('uncaughtException', error => {
 // ============================================================================
 // 🗄️ MÓDULO 2: CONEXIÓN SEGURA A BASE DE DATOS (NEON POSTGRESQL)
 // ============================================================================
-// Conectamos a Neon usando la variable de entorno de Render
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL, 
     ssl: { rejectUnauthorized: false }
 });
 
 // ============================================================================
-// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR WHATSAPP (OPTIMIZADO PARA NUBE)
+// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR WHATSAPP (OPTIMIZADO)
 // ============================================================================
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -39,16 +39,15 @@ const client = new Client({
             '--no-zygote',
             '--disable-extensions', 
             '--disable-accelerated-2d-canvas',
-            '--disable-software-rasterizer' // Ayuda extra para evitar crasheos en Render
+            '--disable-software-rasterizer'
         ],
-        timeout: 0 // Sin límite de tiempo para arrancar
+        timeout: 0 
     }
 });
 
-// Variables Globales de Estado
-let sesiones = {}; // Memoria para saber en qué paso está cada cliente
+let sesiones = {}; 
 let htmlContenido = "<h2 style='text-align:center;font-family:Arial;margin-top:50px;color:#333;'>⚙️ Inicializando Sistema de Cine...</h2>";
-const numeroDelBot = '50664797833'; // Tu número de WhatsApp de empresa
+const numeroDelBot = '50664797833'; 
 
 // ============================================================================
 // 📸 MÓDULO 4: INTERFAZ WEB Y EVENTOS DE CONEXIÓN
@@ -88,16 +87,14 @@ client.on('ready', () => {
 // ============================================================================
 client.on('message', async msg => {
     try {
-        if (!msg.body) return; // Ignora stickers, imágenes sin texto, etc.
+        if (!msg.body) return; 
 
         console.log(`📩 Mensaje entrante de [${msg.from}]: ${msg.body}`); 
         
         const chat = msg.body.toLowerCase().trim();
         let fone = msg.from.split('@')[0]; 
 
-        // --------------------------------------------------------------------
-        // 🛑 COMANDOS DE INTERRUPCIÓN Y MENÚ PRINCIPAL
-        // --------------------------------------------------------------------
+        // COMANDOS DE INTERRUPCIÓN
         if (['reset', 'hola', 'menu', 'inicio', 'buenas', 'buenos dias', 'buenas tardes'].includes(chat)) {
             delete sesiones[fone]; 
             
@@ -116,13 +113,10 @@ client.on('message', async msg => {
             return msg.reply(mensajeBienvenida);
         }
 
-        // --------------------------------------------------------------------
-        // ⚙️ MANEJO DE SESIONES (Si el usuario está a la mitad de un proceso)
-        // --------------------------------------------------------------------
+        // SESIONES ACTIVAS
         if (sesiones[fone] && sesiones[fone].paso) {
             const pasoActual = sesiones[fone].paso;
 
-            // --- FLUJO MODO ADMINISTRADOR ---
             if (pasoActual === 'menu_admin') {
                 if (chat === '1') { 
                     sesiones[fone].paso = 'admin_titulo'; 
@@ -207,7 +201,6 @@ client.on('message', async msg => {
                 return;
             }
 
-            // --- FLUJO RESERVA DE ENTRADAS ---
             else if (pasoActual === 'eligiendo_pelicula') { 
                 const peliculaID = parseInt(chat);
                 if(isNaN(peliculaID)) { 
@@ -261,10 +254,7 @@ client.on('message', async msg => {
             return; 
         }
 
-        // --------------------------------------------------------------------
-        // 🚪 ACCIONES DIRECTAS FUERA DE SESIÓN
-        // --------------------------------------------------------------------
-        
+        // MENÚ PRINCIPAL
         if (chat === '*admin*') {
             sesiones[fone] = { paso: 'menu_admin' };
             return msg.reply('🛠️ *ACCESO CONCEDIDO: MODO ADMINISTRADOR*\n\nResponde con un número:\n1. 🎬 Agregar Película Nueva\n2. 📋 Ver Cartelera Activa\n3. 🗑️ Eliminar Película\n4. 💰 Ver Resumen de Reservas');
@@ -333,22 +323,39 @@ client.on('message', async msg => {
     }
 });
 
+// ============================================================================
+// 🧹 MÓDULO EXTRA: CONSERJE AUTOMÁTICO (DESTRUYE BLOQUEOS VIEJOS)
+// ============================================================================
+const sessionPath = path.join(__dirname, '.wwebjs_auth', 'session');
+const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
+
+if (fs.existsSync(sessionPath)) {
+    lockFiles.forEach(file => {
+        const filePath = path.join(sessionPath, file);
+        if (fs.existsSync(filePath)) {
+            try {
+                fs.unlinkSync(filePath);
+                console.log(`🧹 Conserje: Archivo de bloqueo viejo eliminado -> ${file}`);
+            } catch (e) {
+                console.log(`⚠️ Conserje: No se pudo eliminar ${file}:`, e.message);
+            }
+        }
+    });
+}
+
+// Ahora sí, arrancamos el cliente
 client.initialize();
 
 // ============================================================================
 // 🌐 MÓDULO 6: SERVIDOR WEB (SOLUCIÓN DEFINITIVA A LOS REINICIOS DE RENDER)
 // ============================================================================
-// Tomamos el puerto que Render nos exige usar, o usamos 10000 como respaldo local.
 const port = process.env.PORT || 10000;
 
 http.createServer((req, res) => {
-    // Escuchamos cualquier petición (incluido el Health Check de Render)
-    // y respondemos con un código 200 (Todo Bien). Así Render no nos reinicia.
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.write(htmlContenido);
     res.end();
 }).listen(port, '0.0.0.0', () => {
-    // Al usar '0.0.0.0', exponemos el servicio correctamente a las redes de Render
     console.log(`🌐 Servidor web escuchando correctamente en el puerto ${port}`);
     console.log(`🛡️ Sistema protegido contra reinicios de Render (Health Check Activo)`);
 });
