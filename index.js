@@ -17,7 +17,7 @@ lockFiles.forEach(file => {
     try {
         fs.rmSync(filePath, { force: true }); 
     } catch (e) {
-        // Silencioso
+        // Silencioso si no hay nada que borrar
     }
 });
 console.log("✨ Limpieza completada. Preparando encendido...");
@@ -62,10 +62,17 @@ const client = new Client({
             '--disable-background-networking',
             '--disable-default-apps'
         ],
-        timeout: 0, // Sin límite de tiempo para abrir Chrome
-        protocolTimeout: 0 // 🔥 LA CLAVE: Paciencia infinita para que Render logre cargar WhatsApp
+        timeout: 0, 
+        protocolTimeout: 0 // Paciencia infinita para que Render logre cargar WhatsApp
     }
 });
+
+// ============================================================================
+// 💾 VARIABLES GLOBALES (¡Aquí estaba el error, ya está corregido!)
+// ============================================================================
+let sesiones = {}; 
+let htmlContenido = "<h2 style='text-align:center;font-family:Arial;margin-top:50px;color:#333;'>⚙️ Inicializando Sistema de Cine... (Por favor espera unos minutos)</h2>";
+const numeroDelBot = '50664797833'; 
 
 // ============================================================================
 // 📸 MÓDULO 4: EVENTOS DE WHATSAPP (QR Y CONEXIÓN)
@@ -112,7 +119,6 @@ client.on('message', async msg => {
         const chat = msg.body.toLowerCase().trim();
         let fone = msg.from.split('@')[0]; 
 
-        // Comandos de Reinicio y Menú
         if (['reset', 'hola', 'menu', 'inicio', 'buenas', 'buenos dias', 'buenas tardes'].includes(chat)) {
             delete sesiones[fone]; 
             
@@ -131,7 +137,6 @@ client.on('message', async msg => {
             return msg.reply(mensajeBienvenida);
         }
 
-        // --- MANEJO DE FLUJOS (Sesiones) ---
         if (sesiones[fone] && sesiones[fone].paso) {
             const pasoActual = sesiones[fone].paso;
 
@@ -178,7 +183,6 @@ client.on('message', async msg => {
             return; 
         }
 
-        // --- ACCIONES DIRECTAS ---
         if (chat === '*admin*') {
             sesiones[fone] = { paso: 'menu_admin' };
             return msg.reply('🛠️ *MODO ADMIN*\n1. Agregar\n2. Ver Cartelera\n3. Eliminar\n4. Reporte');
@@ -215,7 +219,7 @@ client.on('message', async msg => {
     } catch (e) { console.log("❌ ERROR:", e.message); }
 });
 
-// Arrancamos el bot
+// Arrancamos el motor de WhatsApp
 client.initialize();
 
 // ============================================================================
