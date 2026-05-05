@@ -15,10 +15,9 @@ console.log("🧹 Ejecutando Súper Conserje de Render...");
 lockFiles.forEach(file => {
     const filePath = path.join(sessionPath, file);
     try {
-        // Borrado forzado para limpiar el camino de Google Chrome
         fs.rmSync(filePath, { force: true }); 
     } catch (e) {
-        // Silencioso si no hay nada que borrar
+        // Silencioso
     }
 });
 console.log("✨ Limpieza completada. Preparando encendido...");
@@ -42,7 +41,7 @@ const pool = new Pool({
 });
 
 // ============================================================================
-// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR (OPTIMIZADO PARA RENDER)
+// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR (DIETA ESTRICTA DE RAM)
 // ============================================================================
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -55,9 +54,13 @@ const client = new Client({
             '--disable-dev-shm-usage', 
             '--disable-gpu',
             '--no-zygote',
+            '--single-process', // 🔥 VUELVE EL AHORRADOR DE MEMORIA ESTRELLA
             '--disable-extensions', 
             '--disable-accelerated-2d-canvas',
-            '--disable-software-rasterizer'
+            '--disable-software-rasterizer',
+            '--mute-audio', // Apaga el audio del navegador para ahorrar RAM
+            '--disable-background-networking',
+            '--disable-default-apps'
         ],
         timeout: 0 
     }
@@ -124,7 +127,7 @@ client.on('message', async msg => {
                 '🍿 *Cine Club La Fábrica de los Sueños* 🎬\n\n' +
                 '¡Hola! Bienvenido a nuestra taquilla automática. Responde con el número de la opción:\n\n' +
                 '*1.* 🎟️ Ver Cartelera y Reservar entradas\n' +
-                '*2.* ❓ ¿Cómo funciona el cine gratuito?\n' +
+                '*2.* ❓ ¿Cómo funciona nuestro cine? (Evacuar dudas)\n' +
                 '*3.* 📍 Ubicación y Horarios de atención\n' +
                 '*4.* 👤 Hablar con Administración';
                 
@@ -135,7 +138,6 @@ client.on('message', async msg => {
         if (sesiones[fone] && sesiones[fone].paso) {
             const pasoActual = sesiones[fone].paso;
 
-            // MODO ADMIN
             if (pasoActual === 'menu_admin') {
                 if (chat === '1') { sesiones[fone].paso = 'admin_titulo'; return msg.reply('🎬 Título:'); }
                 if (chat === '2') {
@@ -147,10 +149,8 @@ client.on('message', async msg => {
                     } catch (e) { msg.reply('❌ Error DB'); delete sesiones[fone]; }
                     return;
                 }
-                // ... (Otras opciones de admin)
             }
             
-            // RESERVA DE CLIENTE
             else if (pasoActual === 'eligiendo_pelicula') { 
                 const id = parseInt(chat);
                 if(isNaN(id)) return msg.reply('⚠️ Envía solo el número de ID.');
@@ -218,7 +218,7 @@ client.on('message', async msg => {
     } catch (e) { console.log("❌ ERROR:", e.message); }
 });
 
-// 🔥🔥🔥 LA CHISPA DE ENCENDIDO (Aquí está el comando que faltaba) 🔥🔥🔥
+// Arrancamos el bot
 client.initialize();
 
 // ============================================================================
