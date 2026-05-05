@@ -41,7 +41,7 @@ const pool = new Pool({
 });
 
 // ============================================================================
-// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR (DIETA ESTRICTA DE RAM)
+// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR (DIETA ESTRICTA Y PACIENCIA)
 // ============================================================================
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -54,21 +54,18 @@ const client = new Client({
             '--disable-dev-shm-usage', 
             '--disable-gpu',
             '--no-zygote',
-            '--single-process', // 🔥 VUELVE EL AHORRADOR DE MEMORIA ESTRELLA
+            '--single-process', 
             '--disable-extensions', 
             '--disable-accelerated-2d-canvas',
             '--disable-software-rasterizer',
-            '--mute-audio', // Apaga el audio del navegador para ahorrar RAM
+            '--mute-audio', 
             '--disable-background-networking',
             '--disable-default-apps'
         ],
-        timeout: 0 
+        timeout: 0, // Sin límite de tiempo para abrir Chrome
+        protocolTimeout: 0 // 🔥 LA CLAVE: Paciencia infinita para que Render logre cargar WhatsApp
     }
 });
-
-let sesiones = {}; 
-let htmlContenido = "<h2 style='text-align:center;font-family:Arial;margin-top:50px;color:#333;'>⚙️ Inicializando Sistema de Cine...</h2>";
-const numeroDelBot = '50664797833'; 
 
 // ============================================================================
 // 📸 MÓDULO 4: EVENTOS DE WHATSAPP (QR Y CONEXIÓN)
