@@ -2,8 +2,27 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcodeImg = require('qrcode');
 const { Pool } = require('pg');
 const http = require('http');
-const fs = require('fs'); // Librería nativa para leer archivos
-const path = require('path'); // Librería nativa para rutas
+const fs = require('fs'); 
+const path = require('path'); 
+
+// ============================================================================
+// 🧹 MÓDULO 0: SÚPER CONSERJE (ELIMINADOR DE BLOQUEOS FANTASMA)
+// ============================================================================
+// Esto se ejecuta ANTES de que arranque WhatsApp para garantizar el camino libre.
+const sessionPath = path.join(process.cwd(), '.wwebjs_auth', 'session');
+const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
+
+console.log("🧹 Ejecutando Súper Conserje de Render...");
+lockFiles.forEach(file => {
+    const filePath = path.join(sessionPath, file);
+    try {
+        // La magia está aquí: force:true destruye el bloqueo aunque esté corrupto o roto
+        fs.rmSync(filePath, { force: true }); 
+    } catch (e) {
+        // Mantenemos el error silencioso si la carpeta aún no existe
+    }
+});
+console.log("✨ Limpieza completada. Arrancando el motor...");
 
 // ============================================================================
 // 🛡️ MÓDULO 1: PROTECCIÓN CONTRA CRASHEOS DEL SERVIDOR (RENDER)
@@ -323,27 +342,6 @@ client.on('message', async msg => {
     }
 });
 
-// ============================================================================
-// 🧹 MÓDULO EXTRA: CONSERJE AUTOMÁTICO (DESTRUYE BLOQUEOS VIEJOS)
-// ============================================================================
-const sessionPath = path.join(__dirname, '.wwebjs_auth', 'session');
-const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
-
-if (fs.existsSync(sessionPath)) {
-    lockFiles.forEach(file => {
-        const filePath = path.join(sessionPath, file);
-        if (fs.existsSync(filePath)) {
-            try {
-                fs.unlinkSync(filePath);
-                console.log(`🧹 Conserje: Archivo de bloqueo viejo eliminado -> ${file}`);
-            } catch (e) {
-                console.log(`⚠️ Conserje: No se pudo eliminar ${file}:`, e.message);
-            }
-        }
-    });
-}
-
-// Ahora sí, arrancamos el cliente
 client.initialize();
 
 // ============================================================================
