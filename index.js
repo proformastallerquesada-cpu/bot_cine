@@ -6,6 +6,7 @@ const http = require('http');
 // ============================================================================
 // 🛡️ MÓDULO 1: PROTECCIÓN CONTRA CRASHEOS DEL SERVIDOR (RENDER)
 // ============================================================================
+// Esto evita que un error de conexión momentáneo apague todo el bot
 process.on('unhandledRejection', error => { 
     console.log('⚠️ [PREVENCIÓN] Promesa ignorada:', error.message || error); 
 });
@@ -16,15 +17,17 @@ process.on('uncaughtException', error => {
 // ============================================================================
 // 🗄️ MÓDULO 2: CONEXIÓN SEGURA A BASE DE DATOS (NEON POSTGRESQL)
 // ============================================================================
+// Conectamos a Neon usando la variable de entorno de Render
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL, 
     ssl: { rejectUnauthorized: false }
 });
 
 // ============================================================================
-// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR WHATSAPP (EQUILIBRIO 512MB RAM)
+// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR WHATSAPP (OPTIMIZADO PARA NUBE)
 // ============================================================================
 const client = new Client({
+    // LocalAuth creará la carpeta .wwebjs_auth (protegida por tu disco en Render)
     authStrategy: new LocalAuth(),
     authTimeoutMs: 0, 
     puppeteer: {
@@ -35,16 +38,18 @@ const client = new Client({
             '--disable-dev-shm-usage', 
             '--disable-gpu',
             '--no-zygote',
-            '--single-process' // Crucial para no saturar los 512MB de Render
+            '--single-process', // Crucial para servidores Render
+            '--disable-extensions', 
+            '--disable-accelerated-2d-canvas' 
         ],
         timeout: 0
     }
 });
 
 // Variables Globales de Estado
-let sesiones = {}; // Memoria temporal para saber en qué paso está cada cliente
+let sesiones = {}; // Memoria para saber en qué paso está cada cliente
 let htmlContenido = "<h2 style='text-align:center;font-family:Arial;margin-top:50px;color:#333;'>⚙️ Inicializando Sistema de Cine...</h2>";
-const numeroDelBot = '50664797833'; // Tu número de bot (usado para el QR de las entradas)
+const numeroDelBot = '50664797833'; // Tu número de WhatsApp de empresa
 
 // ============================================================================
 // 📸 MÓDULO 4: INTERFAZ WEB Y EVENTOS DE CONEXIÓN
@@ -55,18 +60,18 @@ client.on('qr', async (qr) => {
         htmlContenido = `
             <div style="text-align:center;margin-top:40px;font-family:Arial;">
                 <h1 style="color:#075e54;">🍿 Panel de Control: La Fábrica de los Sueños</h1>
-                <p style="color:#555;">Por favor, escanea el código QR con el WhatsApp Dual asignado al cine.</p>
+                <p style="color:#555;">Por favor, escanea el código QR con tu WhatsApp Business.</p>
                 <img src="${qrImage}" style="width:300px;height:300px;border:4px solid #075e54;border-radius:15px;box-shadow: 0px 4px 10px rgba(0,0,0,0.2);" />
-                <p style="color:gray;font-size:12px;margin-top:20px;">El código se renueva automáticamente cada 60 segundos por seguridad.</p>
+                <p style="color:gray;font-size:12px;margin-top:20px;">Nota: Es normal que el código cambie cada 60 segundos por seguridad de WhatsApp.</p>
             </div>`;
-        console.log('--- 🔄 NUEVO CÓDIGO QR GENERADO PARA VINCULACIÓN ---');
+        console.log('--- 🔄 NUEVO CÓDIGO QR GENERADO (Escanea rápido en tu navegador) ---');
     } catch (e) {
         console.log("❌ Error generando interfaz gráfica del QR:", e.message);
     }
 });
 
 client.on('authenticated', () => { 
-    console.log('✅ SESIÓN AUTENTICADA CORRECTAMENTE EN LOS SERVIDORES DE WHATSAPP.'); 
+    console.log('✅ SESIÓN AUTENTICADA CORRECTAMENTE. El disco guardó tus credenciales.'); 
 });
 
 client.on('ready', () => { 
@@ -74,18 +79,17 @@ client.on('ready', () => {
     htmlContenido = `
         <div style="text-align:center;margin-top:50px;font-family:Arial;">
             <h1 style="color:#28a745;">✅ ¡Bot Conectado y En Línea!</h1>
-            <p>El sistema automático de taquilla está operando en la nube 24/7.</p>
-            <p style="color:gray;">Ya puedes cerrar esta ventana.</p>
+            <p>El sistema automático de taquilla está operando en Render 24/7.</p>
+            <p style="color:gray;">Ya puedes cerrar esta ventana con seguridad.</p>
         </div>`;
 });
 
 // ============================================================================
-// 🧠 MÓDULO 5: CEREBRO LÓGICO DEL BOT (PROCESAMIENTO DE MENSAJES)
+// 🧠 MÓDULO 5: LÓGICA DEL BOT Y PROCESAMIENTO DE MENSAJES
 // ============================================================================
 client.on('message', async msg => {
     try {
-        // 1. Filtro de seguridad: Ignorar imágenes sin texto, audios o stickers
-        if (!msg.body) return; 
+        if (!msg.body) return; // Ignora stickers, imágenes sin texto, etc.
 
         console.log(`📩 Mensaje entrante de [${msg.from}]: ${msg.body}`); 
         
@@ -93,17 +97,15 @@ client.on('message', async msg => {
         let fone = msg.from.split('@')[0]; 
 
         // --------------------------------------------------------------------
-        // 🛑 COMANDOS DE INTERRUPCIÓN (Salen de cualquier flujo actual)
+        // 🛑 COMANDOS DE INTERRUPCIÓN Y MENÚ PRINCIPAL
         // --------------------------------------------------------------------
         if (['reset', 'hola', 'menu', 'inicio', 'buenas', 'buenos dias', 'buenas tardes'].includes(chat)) {
-            // Limpiamos la memoria por si el cliente dejó una reserva a medias
             delete sesiones[fone]; 
             
             if(chat === 'reset') {
                 return msg.reply('🔄 Tu sesión ha sido reiniciada forzosamente. Escribe "hola" para volver a empezar.');
             }
             
-            // Envío del Menú Principal
             const mensajeBienvenida = 
                 '🍿 *Cine Club La Fábrica de los Sueños* 🎬\n\n' +
                 '¡Hola! Bienvenido a nuestra taquilla automática. Responde únicamente con el número de la opción que deseas:\n\n' +
@@ -116,12 +118,12 @@ client.on('message', async msg => {
         }
 
         // --------------------------------------------------------------------
-        // ⚙️ SESIONES ACTIVAS: Si el usuario ya está haciendo un proceso
+        // ⚙️ MANEJO DE SESIONES (Si el usuario está a la mitad de un proceso)
         // --------------------------------------------------------------------
         if (sesiones[fone] && sesiones[fone].paso) {
             const pasoActual = sesiones[fone].paso;
 
-            // --- FLUJO: MODO ADMINISTRADOR ---
+            // --- FLUJO MODO ADMINISTRADOR ---
             if (pasoActual === 'menu_admin') {
                 if (chat === '1') { 
                     sesiones[fone].paso = 'admin_titulo'; 
@@ -168,10 +170,9 @@ client.on('message', async msg => {
                     delete sesiones[fone]; 
                     return;
                 }
-                return; // Evita que un comando no válido haga algo
+                return; 
             }
             
-            // Sub-pasos del Administrador
             else if (pasoActual === 'admin_titulo') { 
                 sesiones[fone].titulo = msg.body; 
                 sesiones[fone].paso = 'admin_horario'; 
@@ -207,18 +208,17 @@ client.on('message', async msg => {
                 return;
             }
 
-            // --- FLUJO: RESERVACIÓN DE CLIENTES ---
+            // --- FLUJO RESERVA DE ENTRADAS ---
             else if (pasoActual === 'eligiendo_pelicula') { 
                 const peliculaID = parseInt(chat);
                 if(isNaN(peliculaID)) { 
                     return msg.reply('⚠️ Por favor, envía únicamente el *número de ID* que aparece junto a la película.'); 
                 }
-                // Guardamos el ID en memoria temporal y avanzamos
                 sesiones[fone] = { paso: 'esperando_nombre', peliculaId: peliculaID }; 
                 return msg.reply('¡Excelente elección! 🍿\n\n¿A nombre de quién hacemos la reserva? (Escribe tu Nombre y Apellido)'); 
             }
             else if (pasoActual === 'esperando_nombre') { 
-                sesiones[fone].nombre = msg.body; // Guardamos el nombre tal cual lo escribió
+                sesiones[fone].nombre = msg.body; 
                 sesiones[fone].paso = 'eligiendo_cantidad'; 
                 return msg.reply(`Perfecto, ${sesiones[fone].nombre}.\n\n¿Cuántos espacios necesitas en total para ti y tus acompañantes? (Envía solo el número)`); 
             }
@@ -229,24 +229,20 @@ client.on('message', async msg => {
                 try {
                     msg.reply('⏳ Procesando tu reserva, por favor espera un momento...');
                     
-                    // 1. Guardar la reserva
                     const r = await pool.query(
                         'INSERT INTO reservas (telefono_cliente, nombre_cliente, pelicula_id, cantidad_personas) VALUES ($1,$2,$3,$4) RETURNING id', 
                         [fone, sesiones[fone].nombre, sesiones[fone].peliculaId, cantidadPersonas]
                     );
                     
-                    // 2. Descontar los cupos
                     await pool.query(
                         'UPDATE peliculas SET cupos_disponibles = cupos_disponibles - $1 WHERE id = $2', 
                         [cantidadPersonas, sesiones[fone].peliculaId]
                     );
                     
-                    // 3. Generar Código QR Visual del Ticket
                     const linkValidacion = `https://wa.me/${numeroDelBot}?text=*validar%20${r.rows[0].id}*`;
                     const qrTicket = await qrcodeImg.toDataURL(linkValidacion);
                     const media = new MessageMedia('image/png', qrTicket.split(',')[1], 'ticket.png');
                     
-                    // 4. Enviar el Ticket Final al cliente
                     const mensajeTicket = 
                         `✅ *RESERVA CONFIRMADA EXITOSAMENTE*\n\n` +
                         `👤 Titular: ${sesiones[fone].nombre}\n` +
@@ -255,32 +251,26 @@ client.on('message', async msg => {
                         `⚠️ *IMPORTANTE:* Presenta esta imagen con el código QR en la entrada del cine para acceder a la sala. ¡Te esperamos!`;
                         
                     await client.sendMessage(msg.from, media, { caption: mensajeTicket });
-                    
-                    // Terminamos el proceso
                     delete sesiones[fone]; 
                 } catch(e) {
                     console.log("Error creando reserva:", e);
-                    msg.reply("⚠️ Hubo un error procesando tu reserva. Es posible que el ID de la película no sea correcto o no haya suficientes espacios. Escribe 'hola' para volver al menú principal.");
+                    msg.reply("⚠️ Hubo un error procesando tu reserva. Posible falta de espacios. Escribe 'hola' para volver al menú.");
                     delete sesiones[fone];
                 }
                 return;
             }
-
-            // Si está en una sesión pero manda algo raro, no dejamos que caiga al menú principal
             return; 
         }
 
         // --------------------------------------------------------------------
-        // 🚪 MENÚ PRINCIPAL (Solo se ejecuta si el usuario NO está en un proceso)
+        // 🚪 ACCIONES DIRECTAS FUERA DE SESIÓN
         // --------------------------------------------------------------------
         
-        // Comando Secreto Administrador
         if (chat === '*admin*') {
             sesiones[fone] = { paso: 'menu_admin' };
             return msg.reply('🛠️ *ACCESO CONCEDIDO: MODO ADMINISTRADOR*\n\nResponde con un número:\n1. 🎬 Agregar Película Nueva\n2. 📋 Ver Cartelera Activa\n3. 🗑️ Eliminar Película\n4. 💰 Ver Resumen de Reservas');
         }
 
-        // Comando Secreto Escáner (Validación de Tickets en Puerta)
         if (chat.startsWith('*validar ')) {
             const ticketId = parseInt(chat.split(' ')[1]);
             try {
@@ -293,11 +283,9 @@ client.on('message', async msg => {
                     return msg.reply(`⚠️ ALERTA: El Ticket #${ticketId} YA FUE UTILIZADO ANTERIORMENTE. Entrada denegada.`);
                 }
                 
-                // Actualizamos a que ya entró a la sala
                 await pool.query('UPDATE reservas SET asistio = true WHERE id = $1', [ticketId]);
                 msg.reply(`✅ *ENTRADA AUTORIZADA*\nTicket #${ticketId} validado correctamente.`); 
                 
-                // Disparamos el mensaje automático de cortesía para la dulcería
                 client.sendMessage(
                     `${check.rows[0].telefono_cliente}@c.us`, 
                     `🎟️ ¡Hola ${check.rows[0].nombre_cliente}! Muchas gracias por acompañarnos hoy en *La Fábrica de los Sueños*. ¡Disfruta la película y no olvides pasar por nuestra dulcería para tus snacks favoritos! 🍿🎬`
@@ -308,7 +296,6 @@ client.on('message', async msg => {
             return;
         }
 
-        // Opciones Públicas
         if (chat === '1') {
             try {
                 msg.reply('🔍 Buscando funciones disponibles...');
@@ -323,7 +310,6 @@ client.on('message', async msg => {
                     listaPeliculas += `👉 *ID: ${p.id}* - ${p.titulo}\n🕒 Horario: ${p.horario} | 🪑 Espacios: ${p.cupos_disponibles}\n\n`; 
                 });
                 
-                // Activamos el paso para escuchar qué ID quiere
                 sesiones[fone] = { paso: 'eligiendo_pelicula' }; 
                 return msg.reply(listaPeliculas + 'Para continuar, *envía únicamente el número de ID* de la película que deseas ver:');
             } catch (e) {
@@ -351,10 +337,19 @@ client.on('message', async msg => {
 client.initialize();
 
 // ============================================================================
-// 🌐 MÓDULO 6: SERVIDOR WEB (MANTIENE A RENDER DESPIERTO)
+// 🌐 MÓDULO 6: SERVIDOR WEB (SOLUCIÓN DEFINITIVA A LOS REINICIOS DE RENDER)
 // ============================================================================
+// Tomamos el puerto que Render nos exige usar, o usamos 10000 como respaldo local.
+const port = process.env.PORT || 10000;
+
 http.createServer((req, res) => {
+    // Escuchamos cualquier petición (incluido el Health Check de Render)
+    // y respondemos con un código 200 (Todo Bien). Así Render no nos reinicia.
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.write(htmlContenido);
     res.end();
-}).listen(process.env.PORT || 10000);
+}).listen(port, '0.0.0.0', () => {
+    // Al usar '0.0.0.0', exponemos el servicio correctamente a las redes de Render
+    console.log(`🌐 Servidor web escuchando correctamente en el puerto ${port}`);
+    console.log(`🛡️ Sistema protegido contra reinicios de Render (Health Check Activo)`);
+});
