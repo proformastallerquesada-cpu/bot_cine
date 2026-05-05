@@ -1,6 +1,3 @@
-// ============================================================================
-// 📦 IMPORTACIONES Y VARIABLES GLOBALES
-// ============================================================================
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcodeImg = require('qrcode');
 const { Pool } = require('pg');
@@ -8,42 +5,32 @@ const http = require('http');
 const fs = require('fs'); 
 const path = require('path'); 
 
-let sesiones = {}; 
-let htmlContenido = "<h2 style='text-align:center;font-family:Arial;margin-top:50px;color:#333;'>⚙️ Inicializando Sistema de Cine... (Por favor espera 2-3 minutos)</h2>";
-const numeroDelBot = '50664797833'; 
-const port = process.env.PORT || 10000;
-
 // ============================================================================
-// 🧹 MÓDULO 0: SÚPER CONSERJE (LIMPIEZA DE BLOQUEOS DE CHROME)
+// 🧹 MÓDULO 0: SÚPER CONSERJE
 // ============================================================================
 const sessionPath = path.join(process.cwd(), '.wwebjs_auth', 'session');
 const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
 
-console.log("🧹 Ejecutando Súper Conserje de Render...");
+console.log("🧹 Limpiando bloqueos...");
 if (fs.existsSync(sessionPath)) {
     lockFiles.forEach(file => {
         const filePath = path.join(sessionPath, file);
-        try {
-            fs.rmSync(filePath, { force: true }); 
-        } catch (e) {
-            // Error silencioso
-        }
+        try { fs.rmSync(filePath, { force: true }); } catch (e) {}
     });
 }
-console.log("✨ Limpieza completada.");
 
 // ============================================================================
-// 🛡️ MÓDULO 1: PROTECCIÓN CONTRA CRASHEOS
+// 🛡️ MÓDULO 1: PROTECCIÓN
 // ============================================================================
 process.on('unhandledRejection', error => { 
-    console.log('⚠️ [PREVENCIÓN] Promesa ignorada:', error.message || error); 
+    console.log('⚠️ Promesa ignorada:', error.message); 
 });
 process.on('uncaughtException', error => { 
-    console.log('💥 [PREVENCIÓN FATAL] Error evitado:', error.message || error); 
+    console.log('💥 Error evitado:', error.message); 
 });
 
 // ============================================================================
-// 🗄️ MÓDULO 2: CONEXIÓN A BASE DE DATOS (NEON POSTGRESQL 17)
+// 🗄️ MÓDULO 2: BASE DE DATOS (NEON)
 // ============================================================================
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL, 
@@ -51,63 +38,46 @@ const pool = new Pool({
 });
 
 // ============================================================================
-// 🚀 MÓDULO 3: CONFIGURACIÓN DEL NAVEGADOR (MODO ZEN / AHORRO EXTREMO)
+// 🚀 MÓDULO 3: CONFIGURACIÓN OFICIAL DE RENDER (SIN INVENTOS)
 // ============================================================================
 const client = new Client({
     authStrategy: new LocalAuth(),
-    authTimeoutMs: 0, 
     puppeteer: {
         headless: true,
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox', 
             '--disable-dev-shm-usage', 
-            '--disable-gpu',
-            '--no-zygote',
-            '--single-process', 
-            '--disable-extensions', 
-            '--disable-accelerated-2d-canvas',
-            '--disable-software-rasterizer',
-            '--mute-audio',
-            '--disable-background-networking',
-            '--disable-background-timer-throttling',
-            '--disable-backgrounding-occluded-windows',
-            '--disable-breakpad',
-            '--disable-component-extensions-with-background-pages',
-            '--disable-features=TranslateUI,BlinkGenPropertyTrees',
-            '--disable-ipc-flooding-protection',
-            '--disable-renderer-backgrounding',
-            '--enable-features=NetworkService,NetworkServiceInProcess',
-            '--force-color-profile=srgb',
-            '--metrics-recording-only'
-        ],
-        // Le damos 5 minutos completos a Chrome para arrancar si es necesario
-        timeout: 300000, 
-        protocolTimeout: 300000 
+            '--disable-gpu'
+        ]
     }
 });
 
+let sesiones = {}; 
+let htmlContenido = "<h2 style='text-align:center;font-family:Arial;margin-top:50px;'>⚙️ Cargando Sistema de Cine...</h2>";
+const numeroDelBot = '50664797833'; 
+const port = process.env.PORT || 10000;
+
 // ============================================================================
-// 📸 MÓDULO 4: EVENTOS DE CONEXIÓN Y QR
+// 📸 MÓDULO 4: EVENTOS DE WHATSAPP
 // ============================================================================
 client.on('qr', async (qr) => {
     try {
         const qrImage = await qrcodeImg.toDataURL(qr);
         htmlContenido = `
             <div style="text-align:center;margin-top:40px;font-family:Arial;">
-                <h1 style="color:#075e54;">🍿 Panel de Control: La Fábrica de los Sueños</h1>
-                <p style="color:#555;">Escanea este código con tu WhatsApp Business.</p>
+                <h1 style="color:#075e54;">🍿 La Fábrica de los Sueños</h1>
+                <p>Escanea este código con tu WhatsApp Business.</p>
                 <img src="${qrImage}" style="width:300px;height:300px;border:4px solid #075e54;border-radius:15px;" />
-                <p style="color:gray;font-size:12px;margin-top:20px;">El código se actualiza cada 60 segundos por seguridad.</p>
             </div>`;
-        console.log('--- 🔄 NUEVO CÓDIGO QR LISTO PARA ESCANEAR ---');
+        console.log('--- 🔄 NUEVO CÓDIGO QR LISTO ---');
     } catch (e) {
         console.log("❌ Error generando QR:", e.message);
     }
 });
 
 client.on('authenticated', () => { 
-    console.log('✅ SESIÓN AUTENTICADA. Credenciales a salvo en el disco.'); 
+    console.log('✅ SESIÓN AUTENTICADA. Todo guardado.'); 
 });
 
 client.on('ready', () => { 
@@ -117,6 +87,11 @@ client.on('ready', () => {
             <h1 style="color:#28a745;">✅ ¡Bot Conectado y En Línea!</h1>
             <p>El sistema automático de taquilla está operando 24/7 en Render.</p>
         </div>`;
+});
+
+// Ayuda extra para saber si WhatsApp se desconecta
+client.on('disconnected', (reason) => {
+    console.log('⚠️ WHATSAPP SE DESCONECTÓ:', reason);
 });
 
 // ============================================================================
@@ -191,14 +166,14 @@ client.on('message', async msg => {
 });
 
 // ============================================================================
-// 🔥 ENCENDIDO Y SERVIDOR WEB
+// 🔥 ENCENDIDO Y SERVIDOR WEB 
 // ============================================================================
-client.initialize();
+client.initialize().catch(err => console.log("❌ Error fatal al iniciar Chrome:", err));
 
 http.createServer((req, res) => {
     try {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.write(htmlContenido || "<h2>Cargando sistema... Refresca en un momento.</h2>");
+        res.write(htmlContenido);
         res.end();
     } catch (err) {
         res.writeHead(500);
@@ -206,5 +181,4 @@ http.createServer((req, res) => {
     }
 }).listen(port, '0.0.0.0', () => {
     console.log(`🌐 Servidor escuchando en puerto ${port}`);
-    console.log(`🛡️ Health Check de Render activo.`);
 });
